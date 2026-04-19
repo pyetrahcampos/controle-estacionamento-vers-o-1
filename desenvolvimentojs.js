@@ -1,123 +1,114 @@
-let form = document.getElementById("myForm"),
-    placa = document.getElementById("placa"),
-    proprietario = document.getElementById("proprietario"),
-    bloco = document.getElementById("bloco"),
-    modelo = document.getElementById("modelo"),
-    vaga = document.getElementById("vaga"),
-    cor = document.getElementById("cor"),
-    submitBtn = document.querySelector(".submit"),
-    userInfo = document.getElementById("data"),
-    modal = document.getElementById("userForm"),
-    modalTitle = document.querySelector(".modal-title"),
-    newUserBtn = document.querySelector(".newUser"),
-    closeModalBtn = document.querySelector(".closeModal");
+const parkingForm = document.getElementById("EstacionamentoForm");
+const parkingData = document.getElementById("EstacionamentoData");
+const modal = document.getElementById("modalEstacionamento");
+const btnOpenModal = document.getElementById("btnOpenModal");
+const btnCloseModal = document.getElementById("btnCloseModal");
+const btnSubmit = document.getElementById("btnSubmit");
+const modalTitle = document.getElementById("modalTitle");
 
-let getData = localStorage.getItem('estacionamento') ? JSON.parse(localStorage.getItem('estacionamento')) : [];
-let isEdit = false, editId;
+let database = JSON.parse(localStorage.getItem('parkflow_db')) || [];
+let isEditing = false;
+let editIndex = null;
 
 
-newUserBtn.addEventListener('click', () => {
-    submitBtn.innerText = "Enviar";
-    modalTitle.innerText = "Preencha o formulário";
-    isEdit = false;
-    form.reset();
+btnOpenModal.onclick = () => {
+    isEditing = false;
+    EstacionamentoForm.reset();
+    modalTitle.innerText = "Nova Reserva de Vaga";
+    btnSubmit.innerText = "Confirmar Reserva";
     modal.style.display = "flex";
-});
+};
+
+btnCloseModal.onclick = () => modal.style.display = "none";
 
 
-closeModalBtn.addEventListener('click', () => {
-    modal.style.display = "none";
-});
-
-
-function showInfo() {
-    userInfo.innerHTML = "";
-    getData.forEach((element, index) => {
-        let createElement = `
-        <tr>
-            <td>${index + 1}</td>
-            <td>${element.placa}</td>
-            <td>${element.proprietario}</td>
-            <td>${element.bloco}</td>
-            <td>${element.modelo}</td>
-            <td>${element.vaga}</td>
-            <td>${element.cor}</td>
-            <td>
-                <button onclick="editInfo(${index})" class="btn btn-warning">Editar</button>
-                <button onclick="deleteInfo(${index})" class="btn btn-danger">Excluir</button>
-            </td>
-        </tr>`;
-        userInfo.innerHTML += createElement;
-    });
-}
-
-
-form.addEventListener('submit', (e) => {
+EstacionamentoForm.onsubmit = (e) => {
     e.preventDefault();
 
-    const information = {
-        placa: placa.value,
-        proprietario: proprietario.value,
-        bloco: bloco.value,
-        modelo: modelo.value,
-        vaga: vaga.value,
-        cor: cor.value
+    const entry = {
+        placa: document.getElementById("placa").value.toUpperCase(),
+        proprietario: document.getElementById("proprietario").value,
+        bloco: document.getElementById("bloco").value,
+        apartamento: document.getElementById("apartamento").value,
+        modelo: document.getElementById("modelo").value,
+        cor: document.getElementById("cor").value,
+        vaga: document.getElementById("vaga").value
     };
 
-    const vagaOcupada = getData.some((item, index) => {
-        return item.vaga === information.vaga && (!isEdit || index !== editId);
-    });
+    
+    const isVagaOcupada = database.some((item, index) => 
+        item.vaga === entry.vaga && (!isEditing || index !== editIndex)
+    );
 
-    if (vagaOcupada) {
-        alert("Essa vaga já está ocupada. Escolha outra.");
+    if (isVagaOcupada) {
+        alert("Atenção: Esta vaga já está vinculada a outro veículo!");
         return;
     }
 
-    if (!isEdit) {
-        getData.push(information);
+    if (isEditing) {
+        database[editIndex] = entry;
+        console.log("Registro atualizado:", entry);
     } else {
-        getData[editId] = information;
-        isEdit = false;
+        database.push(entry);
+        console.log("Novo registro efetuado:", entry);
     }
 
-    localStorage.setItem("estacionamento", JSON.stringify(getData));
-    showInfo();
-    form.reset();
+    updateStorage();
+    renderTable();
     modal.style.display = "none";
-});
+    alert("Operação realizada com sucesso!");
+};
 
+function renderTable() {
+    EstacionamentoData.innerHTML = "";
+    
+    database.forEach((item, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td><strong>${item.vaga}</strong></td>
+            <td>${item.placa}</td>
+            <td>${item.proprietario}</td>
+            <td>${item.bloco} - ${item.apartamento}</td>
+            <td>${item.modelo} (${item.cor})</td>
+            <td><span class="status-badge">Ocupada</span></td>
+            <td>
+                <button onclick="prepareEdit(${index})" class="btn btn-warning">editar</button>
+                <button onclick="removeItem(${index})" class="btn btn-danger">excluir</button>
+            </td>
+        `;
+        EstacionamentoData.appendChild(row);
+    });
+}
 
-function editInfo(index) {
-    isEdit = true;
-    editId = index;
+window.prepareEdit = (index) => {
+    isEditing = true;
+    editIndex = index;
+    const item = database[index];
 
-    const data = getData[index];
+    document.getElementById("placa").value = item.placa;
+    document.getElementById("proprietario").value = item.proprietario;
+    document.getElementById("bloco").value = item.bloco;
+    document.getElementById("apartamento").value = item.apartamento;
+    document.getElementById("modelo").value = item.modelo;
+    document.getElementById("cor").value = item.cor;
+    document.getElementById("vaga").value = item.vaga;
 
-    placa.value = data.placa;
-    proprietario.value = data.proprietario;
-    bloco.value = data.bloco;
-    modelo.value = data.modelo;
-    vaga.value = data.vaga;
-    cor.value = data.cor;
-
-    submitBtn.innerText = "Atualizar";
-    modalTitle.innerText = "Editar Registro";
+    modalTitle.innerText = "Editar Reserva";
+    btnSubmit.innerText = "Salvar Alterações";
     modal.style.display = "flex";
-}
+};
 
-
-function deleteInfo(index) {
-    if (confirm("Tem certeza que deseja excluir este registro?")) {
-        getData.splice(index, 1);
-        localStorage.setItem("estacionamento", JSON.stringify(getData));
-        showInfo();
+window.removeItem = (index) => {
+    if (confirm("Deseja realmente liberar esta vaga?")) {
+        database.splice(index, 1);
+        updateStorage();
+        renderTable();
     }
+};
+
+function updateStorage() {
+    localStorage.setItem('Estacionamento_db', JSON.stringify(database));
 }
 
 
-showInfo();
-
-
-
-
-       
+renderTable();
